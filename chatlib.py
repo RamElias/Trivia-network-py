@@ -14,6 +14,7 @@ DATA_DELIMITER = "#"  # Delimiter in the data part of the message
 PROTOCOL_CLIENT = {
     "login_msg": "LOGIN",
     "logout_msg": "LOGOUT"
+
 }  # .. Add more commands if needed
 
 PROTOCOL_SERVER = {
