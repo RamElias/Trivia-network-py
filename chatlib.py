@@ -13,9 +13,13 @@ DATA_DELIMITER = "#"  # Delimiter in the data part of the message
 
 PROTOCOL_CLIENT = {
     "login_msg": "LOGIN",
-    "logout_msg": "LOGOUT"
-
-}  # .. Add more commands if needed
+    "logout_msg": "LOGOUT",
+    "score_msg": "MY_SCORE",
+    "highscore_msg": "HIGHSCORE",
+    "logged_in_users": "LOGGED",
+    "question_msg": "GET_QUESTION",
+    "answer_msg": "SEND_ANSWER"
+}
 
 PROTOCOL_SERVER = {
     "login_ok_msg": "LOGIN_OK",
@@ -60,7 +64,7 @@ def parse_message(data):
     if not (0 <= data_length <= 9999):
         return None, None
 
-    #if len(data) == 3:
+    # if len(data) == 3:
     msg = data[2]
     if data_length != len(msg):
         return None, None
