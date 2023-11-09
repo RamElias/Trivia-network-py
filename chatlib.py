@@ -36,7 +36,7 @@ def build_message(cmd, data):
     Gets command name (str) and data field (str) and creates a valid protocol message
     Returns: str, or None if error occured
     """
-    if cmd not in PROTOCOL_CLIENT.values():
+    if cmd not in PROTOCOL_CLIENT.values() and cmd not in PROTOCOL_SERVER.values():
         return None
 
     cmd += ' ' * (CMD_FIELD_LENGTH - len(cmd))

@@ -3,16 +3,18 @@
 ##############################################################################
 
 import socket
+import select
 import chatlib
 
 # GLOBALS
 users = {}
 questions = {}
-logged_users = {}  # a dictionary of client hostnames to usernames - will be used later
+logged_users = {}
 
 ERROR_MSG = "Error! "
 SERVER_PORT = 5678
 SERVER_IP = "127.0.0.1"
+MAX_MSG_LENGTH = 1024
 
 
 # HELPER SOCKET METHODS
@@ -24,6 +26,7 @@ def build_and_send_message(conn, code, data):
     Paramaters: conn (socket object), code (str), data (str)
     Returns: Nothing
     """
+    print(f'code:{code}, data:{data}')
     full_msg = chatlib.build_message(code, data)
     print("[SERVER] ", full_msg)  # Debug print
     conn.send(full_msg.encode())
@@ -41,6 +44,8 @@ def recv_message_and_parse(conn):
     full_msg = conn.recv(1024).decode()
     print("[CLIENT] ", full_msg)  # Debug print
     cmd, data = chatlib.parse_message(full_msg)
+
+    print(f'cmd: {cmd}, data: {data} ')
     return cmd, data
 
 
@@ -83,23 +88,26 @@ def setup_socket():
     Recieves: -
     Returns: the socket object
     """
-    # Implement code ...
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("Server is up and running")
+    server_socket.bind((SERVER_IP, SERVER_PORT))
+    server_socket.listen()
 
-    return sock
+    print("Listening for clients...")
+
+    return server_socket
 
 
 def send_error(conn, error_msg):
     """
     Send error message with given message
-    Recieves: socket, message error string from called function
+    Receives: socket, message error string from called function
     Returns: None
     """
+    conn.send(error_msg.encode())
 
 
-# Implement code ...
-
-
-##### MESSAGE HANDLING
+# ________________MESSAGE HANDLING________________
 
 
 def handle_getscore_message(conn, username):
@@ -117,8 +125,7 @@ def handle_logout_message(conn):
     """
     global logged_users
 
-
-# Implement code ...
+    conn.close()
 
 
 def handle_login_message(conn, data):
@@ -131,31 +138,99 @@ def handle_login_message(conn, data):
     global users  # This is needed to access the same users dictionary from all functions
     global logged_users  # To be used later
 
+    parts = data.split('#')
+    print(f'parts: {parts}')
+    username = parts[0]
+    user = users.get(username)
+    if user:
+        if user["password"] == parts[1]:
+            build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"], '')
+            logged_users += users[user]
 
-# Implement code ...
+        else:
+            build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
+
+    else:
+        build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
+
+    return
 
 
 def handle_client_message(conn, cmd, data):
     """
     Gets message code and data and calls the right function to handle command
-    Recieves: socket, message code and data
+    Receives: socket, message code and data
     Returns: None
     """
     global logged_users  # To be used later
 
+    if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
+        print(f'cmd: {cmd}')
+        handle_login_message(conn, data)
+    elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+        handle_logout_message(conn)
+    elif cmd == chatlib.PROTOCOL_CLIENT["score_msg"]:
+        handle_getscore_message(conn, data)
+    elif cmd == chatlib.PROTOCOL_CLIENT["highscore_msg"]:
+        return
+    elif cmd == chatlib.PROTOCOL_CLIENT["logged_in_user"]:
+        return
+    elif cmd == chatlib.PROTOCOL_CLIENT["question_msg"]:
+        return
+    elif cmd == chatlib.PROTOCOL_CLIENT["answer_msg"]:
+        return
+    else:
+        conn.send(ERROR_MSG.encode())
 
-# Implement code ...
+
+def print_client_sockets(client_sockets):
+    for c in client_sockets:
+        print("\t", c.getpeername())
+
+
+def answer_clients(ready_to_write, messages_to_send):
+    for message in messages_to_send:
+        current_socket, data = message
+        if current_socket in ready_to_write:
+            current_socket.send(data.encode())
+            messages_to_send.remove(message)
 
 
 def main():
-    # Initializes global users and questions dicionaries using load functions, will be used later
+    # Initializes global users and questions dictionaries using load functions, will be used later
     global users
     global questions
 
+    users = load_user_database()
+    questions = load_questions()
+
     print("Welcome to Trivia Server!")
+    server_socket = setup_socket()
+
+    client_sockets = []
+    # messages_to_send = []
+    while True:
+        ready_to_read, ready_to_write, in_error = select.select([server_socket] + client_sockets, client_sockets, [])
+        for current_socket in ready_to_read:
+            if current_socket == server_socket:
+                (client_socket, client_address) = server_socket.accept()
+                print("New client Joined!")
+                client_sockets.append(client_socket)
+                print_client_sockets(client_sockets)
+            else:
+                print("New data from client")
+                try:
+                    cmd, data = recv_message_and_parse(current_socket)
+                    handle_client_message(current_socket, cmd, data)
 
 
-# Implement code ...
+                except Exception as e:
+                    print(f'Connection aborted by client: {e}')
+                    # client_sockets.remove(current_socket)
+                    # current_socket.close()
+                    # print_client_sockets(client_sockets)
+
+            # answer_clients(ready_to_write, messages_to_send)
 
 
 if __name__ == '__main__':
