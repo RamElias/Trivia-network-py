@@ -59,8 +59,7 @@ def load_questions():
     """
     questions = {
         2313: {"question": "How much is 2+2", "answers": ["3", "4", "2", "1"], "correct": 2},
-        4122: {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpellier"],
-               "correct": 3}
+        4122: {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpellier"], "correct": 3}
     }
 
     return questions
@@ -119,7 +118,7 @@ def handle_getscore_message(conn, username):
 
 def handle_logout_message(conn):
     """
-    Closes the given socket (in laster chapters, also remove user from logged_users dictioary)
+    Closes the given socket (in later chapters, remove user from logged_users dictioary)
     Recieves: socket
     Returns: None
     """
@@ -145,7 +144,7 @@ def handle_login_message(conn, data):
     if user:
         if user["password"] == parts[1]:
             build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"], '')
-            logged_users += users[user]
+            # logged_users += users[user]
 
         else:
             build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
@@ -168,6 +167,7 @@ def handle_client_message(conn, cmd, data):
         print(f'cmd: {cmd}')
         handle_login_message(conn, data)
     elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+        print(f'cmd: {cmd}')
         handle_logout_message(conn)
     elif cmd == chatlib.PROTOCOL_CLIENT["score_msg"]:
         handle_getscore_message(conn, data)
@@ -210,8 +210,14 @@ def main():
     client_sockets = []
     # messages_to_send = []
     while True:
-        ready_to_read, ready_to_write, in_error = select.select([server_socket] + client_sockets, client_sockets, [])
-        for current_socket in ready_to_read:
+        client_sockets = [sock for sock in client_sockets if sock.fileno() != -1]
+        try:
+            ready_to_read, ready_to_write, in_error = select.select([server_socket] + client_sockets, client_sockets,[])
+        except ValueError as e:
+            print("ValueError in select:", e)
+            print("client_sockets:", client_sockets)
+            break
+        for current_socket in ready_to_read[:]:
             if current_socket == server_socket:
                 (client_socket, client_address) = server_socket.accept()
                 print("New client Joined!")
@@ -221,14 +227,21 @@ def main():
                 print("New data from client")
                 try:
                     cmd, data = recv_message_and_parse(current_socket)
+                    if not cmd:
+                        # The socket is closed
+                        client_sockets.remove(current_socket)
+                        print(f'Client {current_socket.getpeername()} disconnected.')
+                        print_client_sockets(client_sockets)
+                        continue
+
                     handle_client_message(current_socket, cmd, data)
 
-
-                except Exception as e:
-                    print(f'Connection aborted by client: {e}')
-                    # client_sockets.remove(current_socket)
-                    # current_socket.close()
-                    # print_client_sockets(client_sockets)
+                except (ConnectionResetError, ConnectionAbortedError):
+                    # Handle the case where the client has disconnected
+                    client_sockets.remove(current_socket)
+                    print(f'Client {current_socket.getpeername()} disconnected.')
+                    current_socket.close()
+                    print_client_sockets(client_sockets)
 
             # answer_clients(ready_to_write, messages_to_send)
 

@@ -51,13 +51,14 @@ def error_and_exit(error_msg):
 
 def login(conn):
     while True:
-        username = input("Please enter username: ")
+        username = input("------- Hello! -------\nPlease enter username: ")
         password = input("Please enter your password: ")
         cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["login_msg"], f'{username}#{password}')
         if cmd == chatlib.PROTOCOL_SERVER["login_ok_msg"]:
-            return
+            return True
         else:
             print("Login failed, wrong user name or password..\n")
+            return False
 
 
 def logout(conn):
@@ -113,33 +114,33 @@ def play_question(conn):
 
 
 def main():
-    client_socket = connect()
-    login(client_socket)
-    print("logged in!")
-
     while True:
-        print("p   Play a trivia question\n"
-              "s   Get my score\n"
-              "h   get high score\n"
-              "l   get logged users\n"
-              "q   quit")
-        cmd = input("Please Enter your choice: ")
-        if cmd == 'p':
-            play_question(client_socket)
-        elif cmd == 's':
-            get_score(client_socket)
-        elif cmd == 'h':
-            get_highscore(client_socket)
-        elif cmd == 'l':
-            get_logged_users(client_socket)
-        elif cmd == 'q':
-            logout(client_socket)
-            print("Goodbye!")
-            break
-        else:
-            print("Wrong command")
+        client_socket = connect()
+        if login(client_socket):
+            print("logged in!")
+            while True:
+                print("p   Play a trivia question\n"
+                      "s   Get my score\n"
+                      "h   get high score\n"
+                      "l   get logged users\n"
+                      "q   quit")
+                cmd = input("Please Enter your choice: ")
+                if cmd == 'p':
+                    play_question(client_socket)
+                elif cmd == 's':
+                    get_score(client_socket)
+                elif cmd == 'h':
+                    get_highscore(client_socket)
+                elif cmd == 'l':
+                    get_logged_users(client_socket)
+                elif cmd == 'q':
+                    logout(client_socket)
+                    print("Goodbye!")
+                    break
+                else:
+                    print("Wrong command")
 
-    client_socket.close()
+    #client_socket.close()
     pass
 
 
