@@ -1,0 +1,11 @@
+{
+    "2313": {"question": "How much is 2+2", "answers": ["3", "4", "2", "1"], "correct": 2},
+    "4122": {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpellier"], "correct": 3},
+    "9999": {"question": "What is the capital of Japan?", "answers": ["Beijing", "Seoul", "Tokyo", "Bangkok"], "correct": 3},
+    "8888": {"question": "What is the largest mammal?", "answers": ["Elephant", "Blue Whale", "Giraffe", "Penguin"], "correct": 2},
+    "1111": {"question": "What is the largest planet in our solar system?", "answers": ["Earth", "Mars", "Jupiter", "Venus"], "correct": 3},
+    "2222": {"question": "In which year did Christopher Columbus reach the Americas?", "answers": ["1492", "1607", "1776", "1832"], "correct": 1},
+    "3333": {"question": "Which chemical element has the symbol 'O'?", "answers": ["Osmium", "Oxygen", "Oganesson", "Osmosis"], "correct": 2},
+    "4444": {"question": "Who wrote 'Romeo and Juliet'?", "answers": ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"], "correct": 2},
+    "5555": {"question": "What is the capital of Australia?", "answers": ["Sydney", "Canberra", "Melbourne", "Brisbane"], "correct": 2}
+}

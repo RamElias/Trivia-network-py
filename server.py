@@ -1,15 +1,17 @@
 ##############################################################################
 # server.py
 ##############################################################################
-
+import json
 import socket
 import select
 import chatlib
+import random
 
 # GLOBALS
 users = {}
 questions = {}
 logged_users = {}
+messages_to_send = []
 
 ERROR_MSG = "Error! "
 SERVER_PORT = 5678
@@ -18,6 +20,15 @@ MAX_MSG_LENGTH = 1024
 
 
 # HELPER SOCKET METHODS
+def answer_clients(ready_to_write):
+    global messages_to_send
+
+    for message in messages_to_send:
+        current_socket, data = message
+        if current_socket in ready_to_write:
+            current_socket.send(data.encode())
+            messages_to_send.remove(message)
+
 
 def build_and_send_message(conn, code, data):
     """
@@ -26,9 +37,9 @@ def build_and_send_message(conn, code, data):
     Paramaters: conn (socket object), code (str), data (str)
     Returns: Nothing
     """
-    print(f'code:{code}, data:{data}')
     full_msg = chatlib.build_message(code, data)
     print("[SERVER] ", full_msg)  # Debug print
+    messages_to_send.append((conn.getpeername(), full_msg))
     conn.send(full_msg.encode())
 
 
@@ -45,37 +56,42 @@ def recv_message_and_parse(conn):
     print("[CLIENT] ", full_msg)  # Debug print
     cmd, data = chatlib.parse_message(full_msg)
 
-    print(f'cmd: {cmd}, data: {data} ')
     return cmd, data
 
 
 # Data Loaders #
 
-def load_questions():
+def load_questions(filename="DB/questions.json"):
     """
-    Loads questions bank from file	## FILE SUPPORT TO BE ADDED LATER
+    Loads questions.json bank from file	## FILE SUPPORT TO BE ADDED LATER
     Recieves: -
-    Returns: questions dictionary
+    Returns: questions.json dictionary
     """
-    questions = {
-        2313: {"question": "How much is 2+2", "answers": ["3", "4", "2", "1"], "correct": 2},
-        4122: {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpellier"], "correct": 3}
-    }
+    global questions
+
+    try:
+        with open(filename, 'r') as file:
+            questions = json.load(file)
+    except FileNotFoundError:
+        questions = {}
 
     return questions
 
 
-def load_user_database():
+def load_user_database(filename="DB/users.json"):
     """
-    Loads users list from file	## FILE SUPPORT TO BE ADDED LATER
+    Loads users.json list from file	## FILE SUPPORT TO BE ADDED LATER
     Recieves: -
     Returns: user dictionary
     """
-    users = {
-        "test": {"password": "test", "score": 0, "questions_asked": []},
-        "yossi": {"password": "123", "score": 50, "questions_asked": []},
-        "master": {"password": "master", "score": 200, "questions_asked": []}
-    }
+    global users
+
+    try:
+        with open(filename, 'r') as file:
+            users = json.load(file)
+    except FileNotFoundError:
+        users = {}
+
     return users
 
 
@@ -106,23 +122,107 @@ def send_error(conn, error_msg):
     conn.send(error_msg.encode())
 
 
-# ________________MESSAGE HANDLING________________
+# ________________MESSAGE HANDLING________________]
+def get_username(conn):
+    ip_address = conn.getpeername()
+    return logged_users[ip_address]
 
 
-def handle_getscore_message(conn, username):
+def create_random_question(username):
+    global questions
     global users
 
+    while True:
+        question_id, question_data = random.choice(list(questions.items()))
+        if question_id not in users[username]["questions_asked"]:
+            users[username]["questions_asked"].append(question_id)
+            break
+    question = question_data["question"]
+    answers = '#'.join(question_data["answers"])
 
-# Implement this in later chapters
+    question_str = f'{question_id}#{question}#{answers}'
+    return question_str
+
+
+def handle_question_msg(conn):
+    username = get_username(conn)
+    if len(users[username]["questions_asked"]) == len(questions):
+        build_and_send_message(conn, chatlib.PROTOCOL_SERVER["no_question_msg"], '')
+        return
+
+    build_and_send_message(conn, chatlib.PROTOCOL_SERVER["question_msg"], create_random_question(username))
+
+
+def handle_answer_msg(conn, data):
+    """
+        Receives: socket
+        Returns: None
+        """
+    global questions
+
+    id, user_answer = data.split('#')
+    correct_index = questions[id]["correct"]
+    correct_answer = questions[id]["answers"][correct_index - 1]
+
+    if correct_answer == questions[id]["answers"][int(user_answer) - 1]:
+        username = get_username(conn)
+        users[username]["score"] += 5
+        build_and_send_message(conn, chatlib.PROTOCOL_SERVER["correct_answer_msg"], '')
+    else:
+        build_and_send_message(conn, chatlib.PROTOCOL_SERVER["wrong_answer_msg"],
+                               questions[id]["answers"][correct_index - 1])
+
+
+def handle_logged_msg(conn):
+    """
+        Receives: socket
+        Returns: None
+        """
+    global logged_users
+
+    logged = [(address, username) for address, username in logged_users.items()]
+    logged_string = ''.join(f'{index + 1}. {username}\n' for index, (address, username) in enumerate(logged))
+    build_and_send_message(conn, chatlib.PROTOCOL_SERVER["logged_in_msg"], logged_string)
+
+
+def handle_highscore_massage(conn):
+    """
+        Receives: socket
+        Returns: None
+        """
+    global users
+
+    users_scores = [(username, user["score"]) for username, user in users.items()]
+
+    sorted_scores = sorted(users_scores, key=lambda x: x[1], reverse=True)
+
+    string_scores = ''.join(f'{user} : {score}\n' for user, score in sorted_scores)
+
+    build_and_send_message(conn, chatlib.PROTOCOL_SERVER["highscore_msg"], string_scores)
+
+
+def handle_getscore_message(conn):
+    """
+        Receives: socket
+        Returns: None
+        """
+    global users
+
+    ip_user = conn.getpeername()
+    username = logged_users[ip_user]
+    user_data = users.get(username)
+    build_and_send_message(conn, chatlib.PROTOCOL_SERVER["user_score_msg"], str(user_data["score"]))
 
 
 def handle_logout_message(conn):
     """
-    Closes the given socket (in later chapters, remove user from logged_users dictioary)
-    Recieves: socket
+    Receives: socket
     Returns: None
     """
     global logged_users
+
+    users[get_username(conn)]["questions_asked"].clear()
+    logged_users.pop(conn.getpeername())
 
     conn.close()
 
@@ -131,28 +231,37 @@ def handle_login_message(conn, data):
     """
     Gets socket and message data of login message. Checks  user and pass exists and match.
     If not - sends error and finished. If all ok, sends OK message and adds user and address to logged_users
-    Recieves: socket, message code and data
+    Receives: socket, message code and data
     Returns: None (sends answer to client)
     """
-    global users  # This is needed to access the same users dictionary from all functions
+    global users  # This is needed to access the same users.json dictionary from all functions
     global logged_users  # To be used later
 
     parts = data.split('#')
-    print(f'parts: {parts}')
     username = parts[0]
     user = users.get(username)
     if user:
         if user["password"] == parts[1]:
             build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"], '')
-            # logged_users += users[user]
-
+            # add to logged_users here
+            ip_address = conn.getpeername()
+            logged_users[ip_address] = username
         else:
             build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
 
     else:
         build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
 
-    return
+    save_user_database()  # Save changes to the user database
+
+
+def save_user_database():
+    with open("users.txt", "w") as file:
+        for username, data in users.items():
+            password = data["password"]
+            score = data["score"]
+            questions = ",".join(data["questions_asked"])
+            file.write(f"{username}:{password}:{score}:{questions}\n")
 
 
 def handle_client_message(conn, cmd, data):
@@ -161,26 +270,28 @@ def handle_client_message(conn, cmd, data):
     Receives: socket, message code and data
     Returns: None
     """
-    global logged_users  # To be used later
+    global logged_users
 
-    if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
-        print(f'cmd: {cmd}')
-        handle_login_message(conn, data)
-    elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
-        print(f'cmd: {cmd}')
-        handle_logout_message(conn)
-    elif cmd == chatlib.PROTOCOL_CLIENT["score_msg"]:
-        handle_getscore_message(conn, data)
-    elif cmd == chatlib.PROTOCOL_CLIENT["highscore_msg"]:
-        return
-    elif cmd == chatlib.PROTOCOL_CLIENT["logged_in_user"]:
-        return
-    elif cmd == chatlib.PROTOCOL_CLIENT["question_msg"]:
-        return
-    elif cmd == chatlib.PROTOCOL_CLIENT["answer_msg"]:
-        return
+    if conn.getpeername() not in logged_users.keys():
+        if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
+            handle_login_message(conn, data)
+        else:
+            send_error(conn, "Wrong command")
     else:
-        conn.send(ERROR_MSG.encode())
+        if cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+            handle_logout_message(conn)
+        elif cmd == chatlib.PROTOCOL_CLIENT["score_msg"]:
+            handle_getscore_message(conn)
+        elif cmd == chatlib.PROTOCOL_CLIENT["highscore_msg"]:
+            handle_highscore_massage(conn)
+        elif cmd == chatlib.PROTOCOL_CLIENT["logged_in_users"]:
+            handle_logged_msg(conn)
+        elif cmd == chatlib.PROTOCOL_CLIENT["question_msg"]:
+            handle_question_msg(conn)
+        elif cmd == chatlib.PROTOCOL_CLIENT["answer_msg"]:
+            handle_answer_msg(conn, data)
+        else:
+            send_error(conn, ERROR_MSG)
 
 
 def print_client_sockets(client_sockets):
@@ -188,16 +299,8 @@ def print_client_sockets(client_sockets):
         print("\t", c.getpeername())
 
 
-def answer_clients(ready_to_write, messages_to_send):
-    for message in messages_to_send:
-        current_socket, data = message
-        if current_socket in ready_to_write:
-            current_socket.send(data.encode())
-            messages_to_send.remove(message)
-
-
 def main():
-    # Initializes global users and questions dictionaries using load functions, will be used later
+    # Initializes global users.json and questions.json dictionaries using load functions, will be used later
     global users
     global questions
 
@@ -212,7 +315,8 @@ def main():
     while True:
         client_sockets = [sock for sock in client_sockets if sock.fileno() != -1]
         try:
-            ready_to_read, ready_to_write, in_error = select.select([server_socket] + client_sockets, client_sockets,[])
+            ready_to_read, ready_to_write, in_error = select.select([server_socket] + client_sockets, client_sockets,
+                                                                    [])
         except ValueError as e:
             print("ValueError in select:", e)
             print("client_sockets:", client_sockets)
@@ -231,6 +335,7 @@ def main():
                         # The socket is closed
                         client_sockets.remove(current_socket)
                         print(f'Client {current_socket.getpeername()} disconnected.')
+                        users[get_username(current_socket)]["questions_asked"].clear()
                         print_client_sockets(client_sockets)
                         continue
 
@@ -243,7 +348,7 @@ def main():
                     current_socket.close()
                     print_client_sockets(client_sockets)
 
-            # answer_clients(ready_to_write, messages_to_send)
+            answer_clients(ready_to_write)
 
 
 if __name__ == '__main__':

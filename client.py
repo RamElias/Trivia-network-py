@@ -17,7 +17,6 @@ def build_and_send_message(conn, code, data):
     Returns: Nothing
     """
     full_msg = chatlib.build_message(code, data)
-    # print(f'sending: {full_msg}')
     conn.send(full_msg.encode())
 
 
@@ -33,7 +32,6 @@ def recv_message_and_parse(conn):
     If error occured, will return None, None
     """
     full_msg = conn.recv(1024).decode()
-    # print(f'Receive: {full_msg}')
     cmd, data = chatlib.parse_message(full_msg)
     return cmd, data
 
@@ -72,17 +70,21 @@ def build_send_recv_parse(conn, cmd, data):
 
 def get_score(conn):
     cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["score_msg"], "")
-    print(f'Your score is: {data} points')
+    print(f'-----------------------------\n'
+          f'Your score is: {data} points\n'
+          f'-----------------------------')
 
 
 def get_highscore(conn):
     cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["highscore_msg"], "")
-    print(f'High score table:\n {data}')
+    print(f'-----------------------------\n'
+          f'High score table:\n-user-|-score-\n{data}'
+          f'-----------------------------')
 
 
 def get_logged_users(conn):
     cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["logged_in_users"], "")
-    print(f"Logged users:\n {data}")
+    print(f"\nLogged users:\n{data}")
 
 
 def play_question(conn):
@@ -90,7 +92,9 @@ def play_question(conn):
     while que_cmd != 'n':
         cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["question_msg"], "")
         if data == '':
-            print("No more Question! Well played!")
+            print(f"------------------------------\n"
+                  "No more Question! Well played!\n"
+                  "------------------------------")
             break
 
         question = data.split('#')
@@ -103,9 +107,13 @@ def play_question(conn):
         answer = input("Please choose yout choice[1-4]: ")
         cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["answer_msg"], f'{answer_id}#{answer}')
         if data == '':
-            print("Correct answer, well done!")
+            print(f"------------------------------\n"
+                  "Correct answer, well done!\n"
+                  "------------------------------")
         else:
-            print(f"Wrong, correct answer is: {data}")
+            print(f"------------------------------\n"
+                  "Wrong, correct answer is: {data}\n"
+                  "------------------------------")
 
         while True:
             que_cmd = input("Next Question? [y/n] \n")
@@ -139,9 +147,6 @@ def main():
                     break
                 else:
                     print("Wrong command")
-
-    #client_socket.close()
-    pass
 
 
 if __name__ == '__main__':

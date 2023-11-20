@@ -23,8 +23,15 @@ PROTOCOL_CLIENT = {
 
 PROTOCOL_SERVER = {
     "login_ok_msg": "LOGIN_OK",
-    "login_failed_msg": "ERROR"
-}  # ..  Add more commands if needed
+    "login_failed_msg": "ERROR",
+    "user_score_msg": "YOUR_SCORE",
+    "highscore_msg": "ALL_SCORE",
+    "logged_in_msg": "LOGGED_ANSWER",
+    "question_msg": "YOUR_QUESTION",
+    "correct_answer_msg": "CORRECT_ANSWER",
+    "wrong_answer_msg": "WRONG_ANSWER",
+    "no_question_msg": "NO_QUESTION"
+}
 
 # Other constants
 
