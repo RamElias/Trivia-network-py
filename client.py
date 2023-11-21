@@ -13,6 +13,7 @@ def build_and_send_message(conn, code, data):
     """
     Builds a new message using chatlib, wanted code and message.
     Prints debug info, then sends it to the given socket.
+
     Paramaters: conn (socket object), code (str), data (str)
     Returns: Nothing
     """
@@ -48,15 +49,14 @@ def error_and_exit(error_msg):
 
 
 def login(conn):
-    while True:
-        username = input("------- Hello! -------\nPlease enter username: ")
-        password = input("Please enter your password: ")
-        cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["login_msg"], f'{username}#{password}')
-        if cmd == chatlib.PROTOCOL_SERVER["login_ok_msg"]:
-            return True
-        else:
-            print("Login failed, wrong user name or password..\n")
-            return False
+    username = input("------- Hello! -------\nPlease enter username: ")
+    password = input("Please enter your password: ")
+    cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["login_msg"], f'{username}#{password}')
+    if cmd == chatlib.PROTOCOL_SERVER["login_ok_msg"]:
+        return True
+    else:
+        print("Login failed, wrong user name or password..\n")
+        return False
 
 
 def logout(conn):
@@ -78,7 +78,7 @@ def get_score(conn):
 def get_highscore(conn):
     cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["highscore_msg"], "")
     print(f'-----------------------------\n'
-          f'High score table:\n-user-|-score-\n{data}'
+          f'High score table: \n-user-|-score-\n{data}'
           f'-----------------------------')
 
 
@@ -104,16 +104,23 @@ def play_question(conn):
               f'     2. {question[3]}\n'
               f'     3. {question[4]}\n'
               f'     4. {question[5]}')
-        answer = input("Please choose yout choice[1-4]: ")
+        options = ['1', '2', '3', '4']
+        while True:
+            answer = input("Please choose your choice[1-4]: ")
+            if answer in options:
+                break
+            else:
+                print("Invalid choice. Please enter a number between 1 and 4.")
+
         cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["answer_msg"], f'{answer_id}#{answer}')
         if data == '':
             print(f"------------------------------\n"
-                  "Correct answer, well done!\n"
-                  "------------------------------")
+                  f"Correct answer, well done!\n"
+                  f"------------------------------")
         else:
             print(f"------------------------------\n"
-                  "Wrong, correct answer is: {data}\n"
-                  "------------------------------")
+                  f"Wrong, correct answer is: {data}\n"
+                  f"------------------------------")
 
         while True:
             que_cmd = input("Next Question? [y/n] \n")

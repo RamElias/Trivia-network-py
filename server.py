@@ -240,28 +240,24 @@ def handle_login_message(conn, data):
     parts = data.split('#')
     username = parts[0]
     user = users.get(username)
-    if user:
-        if user["password"] == parts[1]:
-            build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"], '')
-            # add to logged_users here
-            ip_address = conn.getpeername()
-            logged_users[ip_address] = username
-        else:
-            build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
-
+    if user and user["password"] == parts[1]:
+        build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"], '')
+        # add to logged_users here
+        ip_address = conn.getpeername()
+        logged_users[ip_address] = username
     else:
         build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], '')
 
-    save_user_database()  # Save changes to the user database
+    #save_user_database()
 
 
-def save_user_database():
-    with open("users.txt", "w") as file:
-        for username, data in users.items():
-            password = data["password"]
-            score = data["score"]
-            questions = ",".join(data["questions_asked"])
-            file.write(f"{username}:{password}:{score}:{questions}\n")
+# def save_user_database():
+#     with open("users.txt", "w") as file:
+#         for username, data in users.items():
+#             password = data["password"]
+#             score = data["score"]
+#             questions = ",".join(data["questions_asked"])
+#             file.write(f"{username}:{password}:{score}:{questions}\n")
 
 
 def handle_client_message(conn, cmd, data):
@@ -332,10 +328,8 @@ def main():
                 try:
                     cmd, data = recv_message_and_parse(current_socket)
                     if not cmd:
-                        # The socket is closed
                         client_sockets.remove(current_socket)
                         print(f'Client {current_socket.getpeername()} disconnected.')
-                        users[get_username(current_socket)]["questions_asked"].clear()
                         print_client_sockets(client_sockets)
                         continue
 
@@ -344,8 +338,14 @@ def main():
                 except (ConnectionResetError, ConnectionAbortedError):
                     # Handle the case where the client has disconnected
                     client_sockets.remove(current_socket)
-                    print(f'Client {current_socket.getpeername()} disconnected.')
+                    ip_user = current_socket.getpeername()
+                    username = logged_users.get(ip_user)
+                    if username:
+                        users[username]["questions_asked"].clear()
+                        logged_users.pop(ip_user)
+                        print(f'Client {ip_user} disconnected.')
                     current_socket.close()
+
                     print_client_sockets(client_sockets)
 
             answer_clients(ready_to_write)
